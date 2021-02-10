@@ -1,14 +1,7 @@
-import sys
-import time
+from datetime import date
 
-time.sleep(2)
+today = date.today()
 
-print("Output from Python") 
-print("First name: " + sys.argv[1]) 
-print("Last name: " + sys.argv[2]) 
-
-#print(8/0)
-
-time.sleep(2)
-
-print('after sleep')
+# dd/mm/YY
+d1 = today.strftime("%Y-%m-%d")
+print("d1 =", d1)

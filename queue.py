@@ -1,9 +1,14 @@
+# coding=utf-8
 import sqlalchemy as sa
 import pyodbc
 import pandas as pd
+import sys
+from datetime import date as dt
 
-targetpy = pyodbc.connect("Driver={SQL Server Native Client 11.0};Server=HDESKNEW;Database=QueueMngmnt;uid=sa;pwd=Passw0rd!")
-targetsa = sa.create_engine("mssql+pyodbc://sa:Passw0rd!@HDESKNEW/QueueMngmnt?driver=SQL+Server&charset=utf8",echo=False)
+driver = 'ODBC Driver 17 for SQL Server'
+
+targetpy = pyodbc.connect("Driver={"+driver+"};Server=HDESKNEW;Database=QueueMngmnt;uid=sa;pwd=Passw0rd!")
+targetsa = sa.create_engine("mssql+pyodbc://sa:Passw0rd!@HDESKNEW/QueueMngmnt?driver=ODBC+Driver+17+for+SQL+Server&charset=utf8",echo=False)
 
 # Данные главного сервера
 # С главного сервера выйдем на остальные сервера
@@ -13,9 +18,19 @@ username = 'analytics'
 password = '9764analytics'
 
 #source = pyodbc.connect("Driver={ODBC Driver 17 for SQL Server};""Server="+HQ+";""Database="+DB+";""uid="+username+";pwd="+password)
-source = pyodbc.connect("Driver={SQL Server Native Client 11.0};""Server="+HQ+";""Database="+DB+";""uid="+username+";pwd="+password)
+source = pyodbc.connect("Driver={"+driver+"};""Server="+HQ+";""Database="+DB+";""uid="+username+";pwd="+password)
 
-date = '2021-01-27'
+#date = '2021-02-01'
+#date = sys.argv[1]
+
+if len(sys.argv) > 1:
+    date = sys.argv[1]
+else:
+    today = dt.today()
+    date = today.strftime("%Y-%m-%d")
+
+
+print(date)
 
 branches_sql = 'SELECT [branch_id],[branch_name],[branch_host],[branch_ip],[branch_db_name],[branch_db_username],[branch_db_password] FROM [cds_main].[dbo].[cds_branch]'
 # выгружаем все филиалы
@@ -30,7 +45,7 @@ cds_task = pd.DataFrame([])
 for ind in branches.index:
     try:
         branch_id = branches.loc[ind]['branch_id']
-        cn = pyodbc.connect("Driver={SQL Server Native Client 11.0};""Server="+branches.loc[ind]['branch_host']+";""Database="+branches.loc[ind]['branch_db_name']+";""uid="+branches.loc[ind]['branch_db_username']+";pwd="+branches.loc[ind]['branch_db_password'])
+        cn = pyodbc.connect("Driver={"+driver+"};""Server="+branches.loc[ind]['branch_host']+";""Database="+branches.loc[ind]['branch_db_name']+";""uid="+branches.loc[ind]['branch_db_username']+";pwd="+branches.loc[ind]['branch_db_password'])
         # full loads
         cds_service_name = cds_service_name.append(pd.read_sql_query('select * from cds_service_name where service_name_language_id = 3 and service_name_type = 0 and branch_id = ' + str(branch_id),cn),ignore_index=True)
         cds_deskuser = cds_deskuser.append(pd.read_sql_query('select * from cds_deskuser where branch_id = ' + str(branch_id),cn),ignore_index = True)
