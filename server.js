@@ -291,11 +291,11 @@ function runSchedule(req, res) {
                                     })
                                 })
 
-                                res.send('ok')
                             })
                         })
                     }
                 });
+                res.send('ok')
             }
         })
 
