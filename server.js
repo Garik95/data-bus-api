@@ -266,7 +266,7 @@ function runSchedule(req, res) {
                 var exe = result.recordset[0].command;
                 var loc = 'scripts/' + result.recordset[0].filename;
                 var interval = Base64.decode(result.recordset[0].schedule);
-                var args = result.recordset[0].content;
+                var args = JSON.parse(result.recordset[0].content);
 
                 const job = schedule.scheduleJob(interval, function () {
                     var process = spawn(exe, [loc, args]);
