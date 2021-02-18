@@ -2,6 +2,7 @@ const app = require('express')();
 const schedule = require('node-schedule');
 const server = require('http').createServer(app);
 const options = {};
+const axios = require('axios');
 const io = require('socket.io')(server, options);
 var multer = require('multer')
 var path = require('path')
@@ -83,9 +84,12 @@ app.get('/emit/get/:guid/', (req, res) => {
                 req.body['source'] = req.query.type
                 if (req.query.type == "1") {
                     req.body.params = req.query.params
-
+                    runJob(req, res);
                 }
-                runJob(req, res);
+                if (req.query.type == "2") {
+                    runAPI(req,res)
+                }
+
             } else {
                 res.send(`invalid token`)
             }
@@ -99,6 +103,16 @@ app.post('/addRule', upload.single('file'), (req, res) => {
         if (err) throw err;
         else {
             console.log(req.file.filename);
+            res.send('ok')
+        }
+    })
+})
+
+app.post('/addAPIRule', (req, res) => {
+    db.query(`insert into rules(name,type,command) values (N'` + req.body.name + `',${req.body.type},N'API')`, (err, result) => {
+        if (err) throw err;
+        else {
+            // console.log(req.file.filename);
             res.send('ok')
         }
     })
@@ -188,9 +202,11 @@ io.on('connection', socket => {
 
 
     app.post('/run', runJob);
+    
 });
 
 
+app.get('/runAPI', runAPI);
 app.post('/scheduler', runChildProcess)
 app.post('/killScheduler', killChildProcess)
 
@@ -202,6 +218,12 @@ io.listen(7778, function () {
 var srv = app.listen(7777, function () {
     console.log('Server is running on port: 7777');
 });
+
+function runAPI(req,res) {
+    axios.get('http://10.10.12.65:8989/nciload').then(response => {
+        res.send(response.data)
+    })
+}
 
 
 function runJob(req, res) {
@@ -268,8 +290,15 @@ function runSchedule(req, res) {
                 var interval = Base64.decode(result.recordset[0].schedule);
                 var args = JSON.parse(result.recordset[0].content);
 
+                if(args.length != 0) {
+                    args.unshift(loc);
+                }
+                else{
+                    args = loc
+                }
+
                 const job = schedule.scheduleJob(interval, function () {
-                    var process = spawn(exe, [loc, args]);
+                    var process = spawn(exe, [args]);
                     if (process) {
                         db.query(`update jobs set pid=${process.pid} where id=${req.body.id}`, (err) => {
 
