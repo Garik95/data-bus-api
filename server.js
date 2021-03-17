@@ -55,6 +55,12 @@ var config = {
 sql.connect(config);
 const db = new sql.Request();
 
+// app.use((req,res,next) =>  {
+//     console.log(req.url);
+//     next();
+
+// });
+
 app.get('/rules', (req, res) => {
     db.query('select a.*,b.name as emitname,guid,c.id as scheduleid,schedule,c.status as scheduleStatus from rules a left join emitters b on a.id = b.ruleid left join jobs c on a.id = c.ruleid', (err, result) => {
         if (err) console.log(err);
@@ -73,21 +79,24 @@ app.get('/logs', (req, res) => {
     })
 });
 
-app.get('/emit/get/:guid/', (req, res) => {
-    // res.send(req.query);
+app.get('/emit/:method/:guid/:type/', (req, res) => {
     db.query(`select * from emitters where guid = '` + req.params.guid + `'`, (err, result) => {
         if (err) res.send('nok');
         else {
             if (result.recordset.length != 0) {
                 req.body['ruleid'] = result.recordset[0].ruleid
                 req.body['id'] = result.recordset[0].id
-                req.body['source'] = req.query.type
-                if (req.query.type == "1") {
+                req.body['ruleid'] = result.recordset[0].ruleid
+                req.body['source'] = req.params.type
+                req.body['params'] = req.query;
+                if (req.params.type == "1") {
                     req.body.params = req.query.params
                     runJob(req, res);
                 }
-                if (req.query.type == "2") {
-                    runAPI(req,res)
+                if (req.params.type == "2") {
+                    // if(req.params.method == 'get')
+                    runAPI(req,res,req.params.method)
+                    
                 }
 
             } else {
@@ -219,9 +228,40 @@ var srv = app.listen(7777, function () {
     console.log('Server is running on port: 7777');
 });
 
-function runAPI(req,res) {
-    axios.get('http://10.10.12.65:8989/nciload').then(response => {
-        res.send(response.data)
+function runAPI(req,res,method) {
+    if(req.query.id)
+        req.body['ruleid'] = req.query.id;
+    db.query('select content from rules where id='+parseInt(req.body.ruleid), (err,result) => {
+        if(err) console.log(err);
+        else {
+            var url = Base64.decode(result.recordset[0].content);
+            db.query("insert into rulesLog(ruleid,request) OUTPUT Inserted.ID values(" + req.body.ruleid + ",N'" + url + '/' + Base64.decode(req.query['0']) + "')", (err, result) => {
+                var logid = result.recordset[0].ID;
+                switch (method) {
+                    case 'get': {
+                        axios.get(url,{params:req.body.params}).then(response => {
+                            db.query("update rulesLog set response=N'" + JSON.stringify(response.data) + "',responseat=GETDATE() where id=" + logid, (err, result) => {
+                                if(err) console.log(err);
+                                else {
+                                    res.send(response.data)
+                                }
+                            });
+                        })
+                    } break;
+                    case 'post': {
+                        axios.post(url,JSON.parse(Base64.decode(req.query['0']))).then(response => {
+                            db.query("update rulesLog set response=N'" + JSON.stringify(response.data) + "',responseat=GETDATE() where id=" + logid, (err, result) => {
+                                if(err) console.log(err);
+                                else {
+                                    res.send(response.data)
+                                }
+                            });
+                        })
+                    } break;
+                    default: res.sendStatus(405)
+                }
+            })
+        }
     })
 }
 
