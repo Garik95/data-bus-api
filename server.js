@@ -235,7 +235,11 @@ function runAPI(req,res,method) {
         if(err) console.log(err);
         else {
             var url = Base64.decode(result.recordset[0].content);
-            db.query("insert into rulesLog(ruleid,request) OUTPUT Inserted.ID values(" + req.body.ruleid + ",N'" + url + '/' + Base64.decode(req.query['0']) + "')", (err, result) => {
+            var params;
+            if(req.query.length > 0) {
+                params =  Base64.decode(req.query['0']);
+            }
+            db.query("insert into rulesLog(ruleid,request) OUTPUT Inserted.ID values(" + req.body.ruleid + ",N'" + url + '/' + params + "')", (err, result) => {
                 var logid = result.recordset[0].ID;
                 switch (method) {
                     case 'get': {
